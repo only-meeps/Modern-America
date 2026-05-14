@@ -79,7 +79,7 @@ class InjectOldMaps
                 PhotonView pv = maps[i].AddComponent<PhotonView>();
                 pv.ViewID = 0;
             }
-            Utils.RegisterPrefabWithPhoton(maps[i]);
+            Utils.RegisterPrefabWithPhoton(maps[i], "Maps");
         }
         __instance.maps = currentMaps.ToArray();
         for (int i = 0; i < __instance.maps.Length; i++)
@@ -87,6 +87,28 @@ class InjectOldMaps
             Debug.Log($"Setting mapid of map {i}...");
             __instance.maps[i].GetComponent<Map>().mapID = i;
         }
+        GameObject bombMapSample = __instance.maps[2];
+        GameObject bombPrefab = null;
+        foreach (Transform child in bombMapSample.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.gameObject.name.Contains("MO_A_Bomb"))
+            {
+                bombPrefab = child.gameObject;
+                bombPrefab.name = "MO_A_Bomb";
+                bombPrefab.transform.parent = null;
+                if (bombPrefab.GetComponent<PhotonView>() == null)
+                {
+                    PhotonView pv = bombPrefab.AddComponent<PhotonView>();
+                    pv.ViewID = 0;
+                }
+                break;
+            }
+        }
+        if (bombPrefab != null)
+        {
+            Utils.RegisterPrefabWithPhoton(bombPrefab, "Misc");
+        }
+
         bundle.Unload(false);
         return false;
     }
@@ -144,12 +166,31 @@ class MapLoadPatch
             {
                 rb.solverIterations = 20;
                 rb.solverVelocityIterations = 20;
-                rb.mass = 1000;
+                rb.mass = 700;
                 rb.ResetCenterOfMass();
                 rb.ResetInertiaTensor();
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             }
             Physics.SyncTransforms();
+
+            foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
+            {
+                GameObject current = child.gameObject;
+                Rigidbody rb = current.GetComponent<Rigidbody>();
+                if (current.name.Contains("Bomb"))
+                {
+                    Vector3 position = current.transform.position;
+
+                    PhotonNetwork.Instantiate("Misc/" + "MO_A_Bomb", position, Quaternion.identity);
+                }
+                else if (rb != null)
+                {
+                    Effectable effectable = current.AddComponent<Effectable>();
+                    Effectable_MapObject effectableMap = current.AddComponent<Effectable_MapObject>();
+
+
+                }
+            }
         }
 
 
@@ -160,18 +201,18 @@ class MapLoadPatch
 }
 public static class Utils
 {
-    public static void RegisterPrefabWithPhoton(GameObject prefab)
+    public static void RegisterPrefabWithPhoton(GameObject prefab, string prefix)
     {
         DefaultPool pool = PhotonNetwork.PrefabPool as DefaultPool;
 
         if (pool != null)
         {
-            string photonPath = "Maps/" + prefab.name;
+            string photonPath = prefix + "/" + prefab.name;
 
             if (!pool.ResourceCache.ContainsKey(photonPath))
             {
                 pool.ResourceCache.Add(photonPath, prefab);
-                Debug.Log($"Successfully registered {photonPath} in Photon PrefabPool");
+                Debug.Log($"Successfully registered {photonPath} in Photon PrefabPool at {photonPath}");
             }
         }
         else
