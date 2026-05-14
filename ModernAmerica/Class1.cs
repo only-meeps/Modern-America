@@ -55,20 +55,29 @@ class InjectOldMaps
         Object[] bundleObjects = bundle.LoadAllAssets();
         Debug.Log("Reading assetbundle at " + bundlePath + "...");
         int bundledMapCount = ((GameObject)bundleObjects[0]).transform.childCount;
+        List<GameObject> maps = new List<GameObject>();
         for (int i = 0; i < bundledMapCount; i++)
         {
             GameObject map = ((GameObject)bundleObjects[0]).transform.GetChild(i).gameObject;
             Debug.Log($"Found object {map.name} in bundle");
             Utils.FixShaders(map);
             map.SetActive(true);
-            currentMaps.Add(((GameObject)bundleObjects[0]).transform.GetChild(i).gameObject);
-            if (map.GetComponent<PhotonView>() == null)
+            currentMaps.Add(map);
+            maps.Add(map);
+
+
+        }
+        for (int i = 0; i < maps.Count; i++)
+        {
+            maps[i].transform.parent = null;
+            maps[i].transform.position = Vector3.zero;
+            maps[i].transform.rotation = Quaternion.identity;
+            if (maps[i].GetComponent<PhotonView>() == null)
             {
-                PhotonView pv = map.AddComponent<PhotonView>();
+                PhotonView pv = maps[i].AddComponent<PhotonView>();
                 pv.ViewID = 0;
             }
-            Utils.RegisterPrefabWithPhoton(map);
-
+            Utils.RegisterPrefabWithPhoton(maps[i]);
         }
         __instance.maps = currentMaps.ToArray();
         for (int i = 0; i < __instance.maps.Length; i++)
@@ -110,7 +119,7 @@ class MapLoadPatch
         {
             Debug.Log("Scaling up old map!");
             gameObject.transform.localScale = new Vector3(100, 100, 100);
-
+            gameObject.transform.position = new Vector3(0, -20, 0);
 
             foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
             {
@@ -133,7 +142,7 @@ class MapLoadPatch
             {
                 rb.solverIterations = 20;
                 rb.solverVelocityIterations = 20;
-                rb.mass = 10;
+                rb.mass = 1000;
                 rb.ResetCenterOfMass();
                 rb.ResetInertiaTensor();
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
