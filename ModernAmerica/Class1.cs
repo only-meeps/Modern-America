@@ -103,33 +103,45 @@ class MapLoadPatch
 
         int num = Random.Range(0, __instance.maps.Length);
         __instance.requestedMapID = num;
-        GameObject gameObject = __instance.maps[num];
+        __instance.currentMap = PhotonNetwork.Instantiate("Maps/" + __instance.maps[num].name, Vector3.zero, Quaternion.identity, 0, null);
+        GameObject gameObject = __instance.currentMap;
+
         if (gameObject.name.ToLower().Contains("oldmap"))
         {
+            Debug.Log("Scaling up old map!");
             gameObject.transform.localScale = new Vector3(100, 100, 100);
-        }
-        foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
-        {
-            if (child.name.Contains("Spawn"))
-            {
 
-                child.gameObject.AddComponent<MapSpawnPosition>();
-                Debug.Log($"Successfully converted {child.name} to a functional MapSpawnPosition!");
 
-            }
-        }
-        foreach (var rb in gameObject.GetComponentsInChildren<Rigidbody>())
-        {
-            if (!rb.gameObject.name.ToLower().Contains("spawn"))
+            foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
             {
-                Object.Destroy(rb);
-                continue;
+                if (child.name.Contains("Spawn"))
+                {
+
+                    child.gameObject.AddComponent<MapSpawnPosition>();
+                    Debug.Log($"Successfully converted {child.name} to a functional MapSpawnPosition!");
+
+                }
             }
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            foreach (MeshCollider cl in gameObject.GetComponentsInChildren<MeshCollider>())
+            {
+                GameObject current = cl.gameObject;
+                UnityEngine.Object.Destroy(cl);
+                current.AddComponent<BoxCollider>();
+            }
+            Physics.SyncTransforms();
+            foreach (Rigidbody rb in gameObject.GetComponentsInChildren<Rigidbody>())
+            {
+                rb.solverIterations = 20;
+                rb.solverVelocityIterations = 20;
+                rb.mass = 10;
+                rb.ResetCenterOfMass();
+                rb.ResetInertiaTensor();
+                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            }
+            Physics.SyncTransforms();
         }
-        Physics.SyncTransforms();
-        __instance.currentMap = PhotonNetwork.Instantiate("Maps/" + gameObject.name, Vector3.zero, Quaternion.identity, 0, null);
+
+
         Time.timeScale = 0f;
         Debug.Log($"Successfully loaded map: {gameObject.name} (Index: {num})");
         return false;
