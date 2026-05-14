@@ -17,11 +17,13 @@ public class ModernAmerica : BaseUnityPlugin
     }
     void Update()
     {
+        /*
         if (Input.GetKeyDown(KeyCode.P))
         {
             Time.timeScale = (Time.timeScale == 0f) ? 1f : 0f;
             Debug.Log("TimeScale toggled to: " + Time.timeScale);
         }
+        */
     }
 }
 
@@ -151,7 +153,7 @@ class MapLoadPatch
         }
 
 
-        Time.timeScale = 0f;
+        //Time.timeScale = 0f;
         Debug.Log($"Successfully loaded map: {gameObject.name} (Index: {num})");
         return false;
     }
