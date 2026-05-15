@@ -145,8 +145,56 @@ class MapLoadPatch
             gameObject.transform.localScale = new Vector3(100, 100, 100);
             gameObject.transform.position = new Vector3(0, -20, 0);
 
+            Debug.Log("Extracting textures from map0...");
+            List<Material> defaultMats = new List<Material>();
+            List<Transform> children = __instance.maps[0].GetComponentsInChildren<Transform>().ToList();
+            children.AddRange(__instance.maps[1].GetComponentsInChildren<Transform>().ToList());
+            children.AddRange(__instance.maps[2].GetComponentsInChildren<Transform>().ToList());
+            children.AddRange(__instance.maps[3].GetComponentsInChildren<Transform>().ToList());
+            children.AddRange(__instance.maps[4].GetComponentsInChildren<Transform>().ToList());
+
+            foreach (Transform child in children)
+            {
+                if (child.GetComponent<MeshRenderer>() != null)
+                {
+                    Debug.Log("Object with meshrenderer found! Attempting to extract material...");
+                    if (defaultMats.FindIndex(x => child.GetComponent<MeshRenderer>().sharedMaterial.name.Contains(x.name)) == -1)
+                    {
+                        defaultMats.Add(child.GetComponent<MeshRenderer>().sharedMaterial);
+                        Debug.Log("Extracted texture " + child.GetComponent<MeshRenderer>().sharedMaterial.name);
+                    }
+                    else
+                    {
+                        Debug.Log("Mats list already contains texture. Skipping...");
+                    }
+                }
+                else
+                {
+                    Debug.Log("Skipping object with no meshrenderer...");
+                }
+            }
+            Debug.Log("Textures extracted! List is as follows...");
+            foreach (Material mat in defaultMats)
+            {
+                Debug.Log(mat.name);
+            }
+            Debug.Log("Loading textures...");
             foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
             {
+                if (child.GetComponent<MeshRenderer>() != null)
+                {
+                    int findIdx = defaultMats.FindIndex(x => child.GetComponent<MeshRenderer>().sharedMaterial.name.Contains(x.name));
+                    if (findIdx != -1)
+                    {
+                        child.GetComponent<MeshRenderer>().sharedMaterial = defaultMats[findIdx];
+                        Debug.Log("Replaced texture with " + defaultMats[findIdx].name);
+                    }
+                    else
+                    {
+                        Debug.Log($"Unable to find material {child.GetComponent<MeshRenderer>().sharedMaterial.name} in main list");
+                    }
+                }
+
                 if (child.name.Contains("Spawn"))
                 {
 
