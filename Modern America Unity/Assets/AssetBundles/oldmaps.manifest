@@ -1,0 +1,41 @@
+ManifestFileVersion: 0
+CRC: 489872876
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 80ca8c2309dd656614c18d1cc56fe625
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 05779539150781402cc952f382720263
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 23
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 33
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 54
+  Script: {instanceID: 0}
+- Class: 64
+  Script: {instanceID: 0}
+- Class: 114
+  Script: {fileID: 11500000, guid: 29a9a725b5722474aade5ccb54076256, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 358c87aad5837a34e9646092d6b57e07, type: 3}
+- Class: 115
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers: []
+Assets:
+- Assets/OldMaps.prefab
+Dependencies: []

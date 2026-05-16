@@ -1,0 +1,7 @@
+ManifestFileVersion: 0
+CRC: 1438238730
+AssetBundleManifest:
+  AssetBundleInfos:
+    Info_0:
+      Name: oldmaps
+      Dependencies: {}
