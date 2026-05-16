@@ -2,7 +2,7 @@
 A BepInEx mod to add some small features to the Landfall Archives game Medieval America.
 
 ## Progress
-Currently this mod is in the beta phase. Some maps have been added (due to bug fixes) and more are on the way (from bringing back old maps).
+Currently this mod is in the beta phase. All old maps + the hidden map have been added. Map bug fixes and changes will be on the way soon.
 
 
 ## Plans
