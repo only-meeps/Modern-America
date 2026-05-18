@@ -49,21 +49,21 @@ class PatchSpawn
 }
 
 [HarmonyPatch(typeof(MapManager), "Start")]
-class InjectOldMaps
+internal class InjectOldMaps
 {
-    static bool Prefix(MapManager __instance)
+    private static bool Prefix(MapManager __instance)
     {
         Debug.Log("Starting MapManager...");
-
         MapManager.instance = __instance;
         List<GameObject> currentMaps = new List<GameObject>(__instance.maps);
         List<GameObject> hiddenMap = new List<GameObject>();
         Debug.Log("Logging CurrentMaps");
         for (int i = 0; i < currentMaps.Count; i++)
         {
-            Debug.Log("Idx: " + i);
+            Debug.Log("Idx: " + i.ToString());
             Debug.Log("Name: " + currentMaps[i].name);
-            if (currentMaps[i].transform.parent != null)
+            bool flag = currentMaps[i].transform.parent != null;
+            if (flag)
             {
                 Debug.Log("Parent: " + currentMaps[i].transform.parent.gameObject.name);
             }
@@ -71,170 +71,182 @@ class InjectOldMaps
             {
                 Debug.Log("Parent: None");
             }
-
         }
-
-        string bundlePath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "oldmaps");
-        AssetBundle bundle = AssetBundle.LoadFromFile(bundlePath);
-        Object[] bundleObjects = bundle.LoadAllAssets();
-        Debug.Log("Reading assetbundle at " + bundlePath + "...");
-        int bundledMapCount = ((GameObject)bundleObjects[0]).transform.childCount;
-        List<GameObject> maps = new List<GameObject>();
-        for (int i = 0; i < bundledMapCount; i++)
+        string[] assetBundles = Directory.GetFiles(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
+        List<AssetBundle> bundles = new List<AssetBundle>();
+        foreach (string bundlePath in assetBundles)
         {
-            GameObject map = ((GameObject)bundleObjects[0]).transform.GetChild(i).gameObject;
-            Debug.Log($"Found object {map.name} in bundle");
-            Utils.FixShaders(map);
-            map.SetActive(true);
-            currentMaps.Add(map);
-            maps.Add(map);
-
-
-        }
-        for (int i = 0; i < maps.Count; i++)
-        {
-            maps[i].transform.parent = null;
-            maps[i].transform.position = Vector3.zero;
-            maps[i].transform.rotation = Quaternion.identity;
-
-
-            GameObject gameObject = maps[i];
-            if (gameObject.name.ToLower().Contains("oldmap"))
+            Debug.Log("Found file " + bundlePath + " validating...");
+            bool isAssetBundle = bundlePath.EndsWith(".assetbundle");
+            bool flag2 = !isAssetBundle;
+            if (flag2)
             {
-                Debug.Log("Scaling up old map!");
-
-                if (gameObject.GetComponent<PhotonView>() == null)
-                {
-                    PhotonView pv = gameObject.AddComponent<PhotonView>();
-                    //PhotonTransformView view = gameObject.AddComponent<PhotonTransformView>();
-                    pv.ViewID = 0;
-                    //pv.ObservedComponents.Add(view);
-                }
-
-
-                gameObject.transform.localScale = new Vector3(100, 100, 100);
-
-
-                Debug.Log("Extracting textures from retail maps...");
-                List<Material> defaultMats = new List<Material>();
-                List<Transform> children = __instance.maps[0].GetComponentsInChildren<Transform>().ToList();
-                children.AddRange(__instance.maps[1].GetComponentsInChildren<Transform>().ToList());
-                children.AddRange(__instance.maps[2].GetComponentsInChildren<Transform>().ToList());
-                children.AddRange(__instance.maps[3].GetComponentsInChildren<Transform>().ToList());
-                children.AddRange(__instance.maps[4].GetComponentsInChildren<Transform>().ToList());
-                children.AddRange(__instance.maps[5].GetComponentsInChildren<Transform>().ToList());
-
-                foreach (Transform child in children)
-                {
-                    if (child.GetComponent<MeshRenderer>() != null)
-                    {
-                        if (defaultMats.FindIndex(x => child.GetComponent<MeshRenderer>().sharedMaterial.name.Contains(x.name)) == -1)
-                        {
-                            defaultMats.Add(child.GetComponent<MeshRenderer>().sharedMaterial);
-                        }
-                    }
-                }
-                Debug.Log("Textures extracted! List is as follows...");
-                foreach (Material mat in defaultMats)
-                {
-                    Debug.Log(mat.name);
-                }
-                Debug.Log("Loading textures...");
-                foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
-                {
-                    if (child.GetComponent<MeshRenderer>() != null)
-                    {
-                        int findIdx = defaultMats.FindIndex(x => child.GetComponent<MeshRenderer>().sharedMaterial.name.Contains(x.name));
-                        if (findIdx != -1)
-                        {
-                            //child.GetComponent<MeshRenderer>().sharedMaterial = defaultMats[findIdx];
-                            Material stolenMat = defaultMats[findIdx];
-                            Material instanceMat = new Material(stolenMat);
-                            instanceMat.DisableKeyword("_WORLDPOS_ON");
-                            instanceMat.DisableKeyword("_TRIPLANAR_ON");
-                            instanceMat.SetFloat("_WorldSpaceMapping", 0f);
-
-                            child.GetComponent<MeshRenderer>().material = instanceMat;
-                        }
-                    }
-                    Debug.Log($"Object {child.gameObject.name} : Active: {child.gameObject.activeSelf} : Map : {i}");
-                    if (child.name.ToLower().Contains("spawn"))
-                    {
-                        if (child.GetComponent<MapSpawnPosition>() != null)
-                        {
-                            UnityEngine.Object.Destroy(child.GetComponent<MapSpawnPosition>());
-                        }
-                        child.gameObject.AddComponent<MapSpawnPosition>();
-                        Debug.Log("Fixed spawn");
-                    }
-                }
-                foreach (MeshCollider cl in gameObject.GetComponentsInChildren<MeshCollider>())
-                {
-                    GameObject current = cl.gameObject;
-                    UnityEngine.Object.Destroy(cl);
-                    current.AddComponent<BoxCollider>();
-                }
-                Physics.SyncTransforms();
-                foreach (Rigidbody rb in gameObject.GetComponentsInChildren<Rigidbody>())
-                {
-                    rb.solverIterations = 20;
-                    rb.solverVelocityIterations = 20;
-                    rb.mass = 700;
-                    rb.ResetCenterOfMass();
-                    rb.ResetInertiaTensor();
-                    rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-                }
-                Physics.SyncTransforms();
-
-                foreach (Transform child in gameObject.GetComponentsInChildren<Transform>(true))
-                {
-                    GameObject current = child.gameObject;
-                    Rigidbody rb = current.GetComponent<Rigidbody>();
-
-                    if (rb != null)
-                    {
-                        Effectable effectable = current.AddComponent<Effectable>();
-                        Effectable_MapObject effectableMap = current.AddComponent<Effectable_MapObject>();
-
-
-                    }
-                }
-
+                Debug.Log("File is not a .assetbundle, skipping...");
             }
-            Utils.RegisterPrefabWithPhoton(maps[i], "Maps");
+            else
+            {
+                Debug.Log("File validated!");
+                bundles.Add(AssetBundle.LoadFromFile(bundlePath));
+                UnityEngine.Object[] bundleObjects = bundles[bundles.Count - 1].LoadAllAssets();
+                Debug.Log("Reading assetbundle at " + bundlePath + "...");
+                int bundledMapCount = ((GameObject)bundleObjects[0]).transform.childCount;
+                List<GameObject> maps = new List<GameObject>();
+                for (int k = 0; k < bundledMapCount; k++)
+                {
+                    GameObject map = ((GameObject)bundleObjects[0]).transform.GetChild(k).gameObject;
+                    Debug.Log("Found object " + map.name + " in bundle");
+                    Utils.FixShaders(map);
+                    map.SetActive(true);
+                    currentMaps.Add(map);
+                    maps.Add(map);
+                }
+                for (int l = 0; l < maps.Count; l++)
+                {
+                    maps[l].transform.parent = null;
+                    maps[l].transform.position = Vector3.zero;
+                    maps[l].transform.rotation = Quaternion.identity;
+                    GameObject gameObject = maps[l];
+                    Debug.Log("Scaling up map!");
+                    bool flag3 = gameObject.GetComponent<PhotonView>() == null;
+                    if (flag3)
+                    {
+                        PhotonView pv = gameObject.AddComponent<PhotonView>();
+                        pv.ViewID = 0;
+                    }
+                    gameObject.transform.localScale = new Vector3(100f, 100f, 100f);
+                    Debug.Log("Extracting textures from retail maps...");
+                    List<Material> defaultMats = new List<Material>();
+                    List<Transform> children = __instance.maps[0].GetComponentsInChildren<Transform>().ToList<Transform>();
+                    children.AddRange(__instance.maps[1].GetComponentsInChildren<Transform>().ToList<Transform>());
+                    children.AddRange(__instance.maps[2].GetComponentsInChildren<Transform>().ToList<Transform>());
+                    children.AddRange(__instance.maps[3].GetComponentsInChildren<Transform>().ToList<Transform>());
+                    children.AddRange(__instance.maps[4].GetComponentsInChildren<Transform>().ToList<Transform>());
+                    children.AddRange(__instance.maps[5].GetComponentsInChildren<Transform>().ToList<Transform>());
+                    using (List<Transform>.Enumerator enumerator = children.GetEnumerator())
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            Transform child = enumerator.Current;
+                            bool flag4 = child.GetComponent<MeshRenderer>() != null;
+                            if (flag4)
+                            {
+                                bool flag5 = defaultMats.FindIndex((Material x) => child.GetComponent<MeshRenderer>().sharedMaterial.name.Contains(x.name)) == -1;
+                                if (flag5)
+                                {
+                                    defaultMats.Add(child.GetComponent<MeshRenderer>().sharedMaterial);
+                                }
+                            }
+                        }
+                    }
+                    Debug.Log("Textures extracted! List is as follows...");
+                    foreach (Material mat in defaultMats)
+                    {
+                        Debug.Log(mat.name);
+                    }
+                    Debug.Log("Loading textures...");
+                    Transform[] componentsInChildren = gameObject.GetComponentsInChildren<Transform>(true);
+                    for (int num = 0; num < componentsInChildren.Length; num++)
+                    {
+                        Transform child = componentsInChildren[num];
+                        bool flag6 = child.GetComponent<MeshRenderer>() != null;
+                        if (flag6)
+                        {
+                            int findIdx = defaultMats.FindIndex((Material x) => child.GetComponent<MeshRenderer>().sharedMaterial.name.Contains(x.name));
+                            bool flag7 = findIdx != -1;
+                            if (flag7)
+                            {
+                                Material stolenMat = defaultMats[findIdx];
+                                Material instanceMat = new Material(stolenMat);
+                                instanceMat.DisableKeyword("_WORLDPOS_ON");
+                                instanceMat.DisableKeyword("_TRIPLANAR_ON");
+                                instanceMat.SetFloat("_WorldSpaceMapping", 0f);
+                                child.GetComponent<MeshRenderer>().material = instanceMat;
+                            }
+                        }
+                        bool flag8 = child.name.ToLower().Contains("spawn");
+                        if (flag8)
+                        {
+                            bool flag9 = child.GetComponent<MapSpawnPosition>() != null;
+                            if (flag9)
+                            {
+                                UnityEngine.Object.Destroy(child.GetComponent<MapSpawnPosition>());
+                            }
+                            child.gameObject.AddComponent<MapSpawnPosition>();
+                        }
+                    }
+                    foreach (MeshCollider cl in gameObject.GetComponentsInChildren<MeshCollider>())
+                    {
+                        GameObject current = cl.gameObject;
+                        UnityEngine.Object.Destroy(cl);
+                        current.AddComponent<BoxCollider>();
+                    }
+                    Physics.SyncTransforms();
+                    foreach (Rigidbody rb in gameObject.GetComponentsInChildren<Rigidbody>())
+                    {
+                        rb.solverIterations = 20;
+                        rb.solverVelocityIterations = 20;
+                        rb.mass = 700f;
+                        rb.ResetCenterOfMass();
+                        rb.ResetInertiaTensor();
+                        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+                    }
+                    Physics.SyncTransforms();
+                    foreach (Transform child3 in gameObject.GetComponentsInChildren<Transform>(true))
+                    {
+                        GameObject current2 = child3.gameObject;
+                        Rigidbody rb2 = current2.GetComponent<Rigidbody>();
+                        bool flag10 = rb2 != null;
+                        if (flag10)
+                        {
+                            Effectable effectable = current2.AddComponent<Effectable>();
+                            Effectable_MapObject effectableMap = current2.AddComponent<Effectable_MapObject>();
+                        }
+                    }
+                    GameObject gameObject2 = maps[l];
+                    gameObject2.name += " : ImportedMap";
+                    Utils.RegisterPrefabWithPhoton(maps[l], "Maps");
+                    Debug.Log("Finished patching " + maps[l].name);
+                }
+            }
         }
         __instance.maps = currentMaps.ToArray();
-        for (int i = 0; i < __instance.maps.Length; i++)
+        for (int m = 0; m < __instance.maps.Length; m++)
         {
-            Debug.Log($"Setting mapid of map {i}...");
-            __instance.maps[i].GetComponent<Map>().mapID = i;
+            Debug.Log(string.Format("Setting mapid of map {0}...", m));
+            __instance.maps[m].GetComponent<Map>().mapID = m;
         }
         GameObject bombMapSample = __instance.maps[2];
         GameObject bombPrefab = null;
-        foreach (Transform child in bombMapSample.GetComponentsInChildren<Transform>(true))
+        foreach (Transform child2 in bombMapSample.GetComponentsInChildren<Transform>(true))
         {
-            if (child.gameObject.name.Contains("MO_A_Bomb"))
+            bool flag11 = child2.gameObject.name.Contains("MO_A_Bomb");
+            if (flag11)
             {
-                bombPrefab = child.gameObject;
+                bombPrefab = child2.gameObject;
                 bombPrefab.name = "MO_A_Bomb";
                 bombPrefab.transform.parent = null;
-                if (bombPrefab.GetComponent<PhotonView>() == null)
+                bool flag12 = bombPrefab.GetComponent<PhotonView>() == null;
+                if (flag12)
                 {
-                    PhotonView pv = bombPrefab.AddComponent<PhotonView>();
-                    pv.ViewID = 0;
+                    PhotonView pv2 = bombPrefab.AddComponent<PhotonView>();
+                    pv2.ViewID = 0;
                 }
                 break;
             }
         }
-        if (bombPrefab != null)
+        bool flag13 = bombPrefab != null;
+        if (flag13)
         {
             Utils.RegisterPrefabWithPhoton(bombPrefab, "Misc");
         }
-
-        bundle.Unload(false);
+        for (int n = 0; n < bundles.Count; n++)
+        {
+            bundles[n].Unload(false);
+        }
         return false;
     }
 }
+
 [HarmonyPatch(typeof(GM_Test), "SpawnPlayerOnMap")]
 class PositionDebugger
 {
@@ -247,72 +259,82 @@ class PositionDebugger
 
 
 [HarmonyPatch(typeof(MapManager), "LoadRandomLevel")]
-class MapLoadPatch : IOnEventCallback
+internal class MapLoadPatch : IOnEventCallback
 {
-    private const byte MAP_MOVE_EVENT_CODE = 99;
-
-    static bool Prefix(MapManager __instance)
+    private static bool Prefix(MapManager __instance)
     {
-        if (!PhotonNetwork.IsMasterClient)
+        bool flag = !PhotonNetwork.IsMasterClient;
+        bool result;
+        if (flag)
         {
-            if (__instance.currentMap) PhotonNetwork.Destroy(__instance.currentMap);
-            return false;
-        }
-
-        if (__instance.currentMap)
-        {
-            PhotonNetwork.Destroy(__instance.currentMap);
-        }
-
-        int num = Random.Range(0, __instance.maps.Length);
-        __instance.requestedMapID = num;
-        string mapName = __instance.maps[num].name;
-
-        __instance.currentMap = PhotonNetwork.Instantiate("Maps/" + mapName, Vector3.zero, Quaternion.identity, 0, null);
-
-        if (mapName.ToLower().Contains("oldmap"))
-        {
-            __instance.currentMap.transform.position = new Vector3(0, -25, 0);
-
-            RaiseEventOptions raiseEventOptions = new RaiseEventOptions
+            bool flag2 = __instance.currentMap;
+            if (flag2)
             {
-                Receivers = ReceiverGroup.Others,
-                CachingOption = EventCaching.AddToRoomCache
-            };
-            SendOptions sendOptions = new SendOptions { Reliability = true };
-            foreach (Transform child in __instance.currentMap.GetComponentsInChildren<Transform>())
-            {
-                if (child.name.Contains("Bomb"))
-                {
-                    Vector3 position = child.transform.position;
-
-                    PhotonNetwork.Instantiate("Misc/" + "MO_A_Bomb", position, Quaternion.identity);
-                }
+                PhotonNetwork.Destroy(__instance.currentMap);
             }
-
-            int mapViewID = __instance.currentMap.GetComponent<PhotonView>().ViewID;
-            PhotonNetwork.RaiseEvent(MAP_MOVE_EVENT_CODE, mapViewID, raiseEventOptions, sendOptions);
+            result = false;
         }
-
-        Debug.Log($"Successfully loaded map: {mapName} (Index: {num})");
-        return false;
+        else
+        {
+            bool flag3 = __instance.currentMap;
+            if (flag3)
+            {
+                PhotonNetwork.Destroy(__instance.currentMap);
+            }
+            int num = UnityEngine.Random.Range(0, __instance.maps.Length);
+            __instance.requestedMapID = num;
+            string mapName = __instance.maps[num].name;
+            __instance.currentMap = PhotonNetwork.Instantiate("Maps/" + mapName, Vector3.zero, Quaternion.identity, 0, null);
+            bool flag4 = mapName.Contains("ImportedMap");
+            if (flag4)
+            {
+                Debug.Log("Patching " + mapName + "...");
+                __instance.currentMap.transform.position = new Vector3(0f, -25f, 0f);
+                RaiseEventOptions raiseEventOptions = new RaiseEventOptions
+                {
+                    Receivers = ReceiverGroup.Others,
+                    CachingOption = EventCaching.AddToRoomCache
+                };
+                SendOptions sendOptions = new SendOptions
+                {
+                    Reliability = true
+                };
+                foreach (Transform child in __instance.currentMap.GetComponentsInChildren<Transform>())
+                {
+                    bool flag5 = child.name.Contains("Bomb");
+                    if (flag5)
+                    {
+                        Vector3 position = child.transform.position;
+                        GameObject bomb = PhotonNetwork.Instantiate("Misc/MO_A_Bomb", position, Quaternion.identity, 0, null);
+                        bomb.transform.parent = child.transform;
+                    }
+                }
+                int mapViewID = __instance.currentMap.GetComponent<PhotonView>().ViewID;
+                PhotonNetwork.RaiseEvent(99, mapViewID, raiseEventOptions, sendOptions);
+            }
+            Debug.Log(string.Format("Successfully loaded map: {0} (Index: {1})", mapName, num));
+            result = false;
+        }
+        return result;
     }
-
     public void OnEvent(EventData photonEvent)
     {
-        if (photonEvent.Code == MAP_MOVE_EVENT_CODE)
+        bool flag = photonEvent.Code == 99;
+        if (flag)
         {
             int targetViewID = (int)photonEvent.CustomData;
             PhotonView targetView = PhotonView.Find(targetViewID);
-
-            if (targetView != null)
+            bool flag2 = targetView != null;
+            if (flag2)
             {
-                targetView.gameObject.transform.position = new Vector3(0, -23, 0);
+                targetView.gameObject.transform.position = new Vector3(0f, -23f, 0f);
                 Debug.Log("Successfully moved map on client via Network Event.");
             }
         }
     }
+    private const byte MAP_MOVE_EVENT_CODE = 99;
 }
+
 public static class Utils
 {
     public static void RegisterPrefabWithPhoton(GameObject prefab, string prefix)
